@@ -1,3 +1,7 @@
+window.addEventListener("error", (e) => {
+  const el = document.getElementById("gate-error");
+  if (el) el.textContent = "Error: " + e.message;
+});
 (function () {
   "use strict";
   const S = window.SITE;
@@ -5,7 +9,6 @@
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const UNLOCK_KEY = "pk-unlocked";
 
   /* ================= ICONS ================= */
   const ICONS = {
@@ -327,7 +330,6 @@
     } catch (e) { return sha256js(text); }
   }
   function unlock(instant) {
-    try { sessionStorage.setItem(UNLOCK_KEY, "1"); } catch (e) {}
     clearInterval(tc);
     document.body.classList.remove("locked");
     $("#site").hidden = false;
@@ -338,7 +340,12 @@
   }
   async function tryPassword() {
     const input = $("#gate-input");
-    if ((await sha256(input.value.trim())) === S.passwordHash) return unlock(false);
+    try {
+      if ((await sha256(input.value.trim())) === S.passwordHash) return unlock(false);
+    } catch (err) {
+      $("#gate-error").textContent = "Something went wrong: " + err.message;
+      return;
+    }
     $("#gate-error").textContent = "That password isn't right. Try again.";
     const f = $("#gate-form"); f.classList.remove("shake"); void f.offsetWidth; f.classList.add("shake");
     input.value = ""; input.focus();
@@ -346,7 +353,6 @@
   $("#gate-form").addEventListener("submit", (e) => { e.preventDefault(); tryPassword(); });
   $("#gate-btn").addEventListener("click", (e) => { e.preventDefault(); tryPassword(); });
   $("#gate-input").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); tryPassword(); } });
-  let remembered = false;
-  try { remembered = sessionStorage.getItem(UNLOCK_KEY) === "1"; } catch (e) {}
-  if (remembered) unlock(true);
+  /* clear any old "already unlocked" flag so the intro always plays */
+  try { sessionStorage.removeItem("pk-unlocked"); } catch (e) {}
 })();
