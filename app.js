@@ -33,7 +33,7 @@
     const parts = Array.from({ length: 60 }, () => ({ x: r(), y: r(), z: r(), s: r(), c: PALETTE[Math.floor(r() * PALETTE.length)], p: r() * 6.28 }));
     c._pk = { scene: c.dataset.scene || "haze", parts, r, off: r() * 100 };
     size(c);
-    if ("IntersectionObserver" in window) io.observe(c); else live.add(c);
+    live.add(c);
     draw(c, reduced ? 12 : 0);
   }
   function size(c) {
@@ -42,7 +42,6 @@
     c.width = Math.max(160, Math.min(720, Math.round(rect.width * scale)));
     c.height = Math.max(90, Math.round(c.width * (rect.height / Math.max(rect.width, 1)) || c.width * 0.5625));
   }
-  const io = "IntersectionObserver" in window ? new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting ? live.add(e.target) : live.delete(e.target))) : null;
 
   function draw(c, time) {
     const g = c.getContext("2d"), w = c.width, h = c.height, st = c._pk, t = time + st.off;
@@ -109,7 +108,12 @@
   function loop(now) {
     if (!document.hidden && now - last > 1000 / 30) {
       last = now;
-      live.forEach((c) => { if (c.isConnected) draw(c, now / 1000); else live.delete(c); });
+      const vh = window.innerHeight;
+      live.forEach((c) => {
+        if (!c.isConnected) return live.delete(c);
+        const r = c.getBoundingClientRect();
+        if (r.bottom > 0 && r.top < vh) draw(c, now / 1000);
+      });
     }
     requestAnimationFrame(loop);
   }
@@ -230,10 +234,6 @@
   const empty = (msg) => `<p class="page-note" style="text-align:left;padding:0 var(--gutter)">${esc(msg)}</p>`;
 
   /* ================= ROUTER ================= */
-  const revealIO = "IntersectionObserver" in window
-    ? new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("shown"); revealIO.unobserve(e.target); } }), { rootMargin: "0px 0px -6% 0px" })
-    : null;
-
   function route() {
     if (document.body.classList.contains("locked")) return;
     const id = location.hash.slice(1);
@@ -245,10 +245,7 @@
     $$(".nav > a, .mobile-menu > a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#" + id));
     document.title = name === "home" ? `${S.name} — ${S.role}` : `${name === "bts" ? "BTS" : name[0].toUpperCase() + name.slice(1)} — ${S.name}`;
     $$("canvas[data-scene]", view).forEach(setupCanvas);
-    $$(".reveal", view).forEach((el, i) => {
-      el.style.transitionDelay = `${Math.min(i, 6) * 0.09}s`;
-      if (revealIO && !reduced) revealIO.observe(el); else el.classList.add("shown");
-    });
+    $$(".reveal", view).forEach((el, i) => { el.style.animationDelay = `${0.15 + Math.min(i, 8) * 0.09}s`; });
     $$("video[autoplay]", view).forEach((v) => v.play().catch(() => {}));
     const copy = $("#copy-email");
     if (copy) copy.addEventListener("click", () => {
@@ -295,9 +292,39 @@
     $("#timecode").textContent = `${pad(Math.floor(f / 86400) % 24)}:${pad(Math.floor(f / 1440) % 60)}:${pad(Math.floor(f / 24) % 60)}:${pad(f % 24)}`;
   }, 42);
 
+  /* SHA-256: native when available, pure-JS fallback for sandboxed / non-https frames */
+  function sha256js(str) {
+    const K = [], H = [];
+    let n = 2, c = 0;
+    const frac = (x) => ((x - Math.floor(x)) * 4294967296) | 0;
+    while (c < 64) { let p = true; for (let d = 2; d * d <= n; d++) if (n % d === 0) { p = false; break; }
+      if (p) { if (c < 8) H[c] = frac(Math.pow(n, 1 / 2)); K[c++] = frac(Math.pow(n, 1 / 3)); } n++; }
+    const bytes = [...new TextEncoder().encode(str)], l = bytes.length * 8;
+    bytes.push(0x80); while (bytes.length % 64 !== 56) bytes.push(0);
+    for (let i = 7; i >= 0; i--) bytes.push(i > 3 ? 0 : (l >>> (i * 8)) & 255);
+    const rot = (x, r) => (x >>> r) | (x << (32 - r)), w = new Array(64);
+    for (let o = 0; o < bytes.length; o += 64) {
+      for (let i = 0; i < 16; i++) w[i] = (bytes[o + i * 4] << 24) | (bytes[o + i * 4 + 1] << 16) | (bytes[o + i * 4 + 2] << 8) | bytes[o + i * 4 + 3];
+      for (let i = 16; i < 64; i++) {
+        const s0 = rot(w[i - 15], 7) ^ rot(w[i - 15], 18) ^ (w[i - 15] >>> 3), s1 = rot(w[i - 2], 17) ^ rot(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+      }
+      let [A, B, C, D, E, F, G, Hh] = H;
+      for (let i = 0; i < 64; i++) {
+        const t1 = (Hh + (rot(E, 6) ^ rot(E, 11) ^ rot(E, 25)) + ((E & F) ^ (~E & G)) + K[i] + w[i]) | 0;
+        const t2 = ((rot(A, 2) ^ rot(A, 13) ^ rot(A, 22)) + ((A & B) ^ (A & C) ^ (B & C))) | 0;
+        Hh = G; G = F; F = E; E = (D + t1) | 0; D = C; C = B; B = A; A = (t1 + t2) | 0;
+      }
+      H[0] = (H[0] + A) | 0; H[1] = (H[1] + B) | 0; H[2] = (H[2] + C) | 0; H[3] = (H[3] + D) | 0;
+      H[4] = (H[4] + E) | 0; H[5] = (H[5] + F) | 0; H[6] = (H[6] + G) | 0; H[7] = (H[7] + Hh) | 0;
+    }
+    return H.map((h) => (h >>> 0).toString(16).padStart(8, "0")).join("");
+  }
   async function sha256(text) {
-    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    try {
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+      return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    } catch (e) { return sha256js(text); }
   }
   function unlock(instant) {
     try { sessionStorage.setItem(UNLOCK_KEY, "1"); } catch (e) {}
@@ -307,18 +334,18 @@
     const done = () => { live.delete($(".gate-canvas")); gate.remove(); };
     if (instant) done(); else { gate.classList.add("opening"); setTimeout(done, 2000); }
     route();
-    requestAnimationFrame(() => requestAnimationFrame(() => $("#site").classList.add("in")));
+    setTimeout(() => $("#site").classList.add("in"), 30);
   }
-  $("#gate-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
+  async function tryPassword() {
     const input = $("#gate-input");
-    let ok = false;
-    try { ok = (await sha256(input.value.trim())) === S.passwordHash; } catch (err) {}
-    if (ok) return unlock(false);
+    if ((await sha256(input.value.trim())) === S.passwordHash) return unlock(false);
     $("#gate-error").textContent = "That password isn't right. Try again.";
     const f = $("#gate-form"); f.classList.remove("shake"); void f.offsetWidth; f.classList.add("shake");
     input.value = ""; input.focus();
-  });
+  }
+  $("#gate-form").addEventListener("submit", (e) => { e.preventDefault(); tryPassword(); });
+  $("#gate-btn").addEventListener("click", (e) => { e.preventDefault(); tryPassword(); });
+  $("#gate-input").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); tryPassword(); } });
   let remembered = false;
   try { remembered = sessionStorage.getItem(UNLOCK_KEY) === "1"; } catch (e) {}
   if (remembered) unlock(true);
