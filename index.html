@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1 Purple Kow — Director Cricket</title>
+  <meta name="description" content="1 Purple Kow — films, behind the scenes and upcoming work by Director Cricket.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="locked">
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- PASSWORD INTRO -->
+  <section id="gate" class="gate" aria-label="Enter password">
+    <div class="gate-glow" aria-hidden="true"></div>
+    <div class="gate-inner">
+      <p class="gate-kicker">1 Purple Kow</p>
+      <h1 class="gate-title">Director<br>Cricket</h1>
+      <form id="gate-form" class="gate-form" autocomplete="off">
+        <label for="gate-input" class="sr-only">Password</label>
+        <input id="gate-input" type="password" placeholder="Enter password" autofocus>
+        <button type="submit" aria-label="Enter">&rarr;</button>
+      </form>
+      <p id="gate-error" class="gate-error" role="alert"></p>
+    </div>
+  </section>
+
+  <!-- SITE -->
+  <div id="site" class="site" hidden>
+    <header class="topbar">
+      <a href="#" class="brand" data-home>
+        <span class="brand-name">1 Purple Kow</span>
+        <span class="brand-role">Director Cricket</span>
+      </a>
+      <nav class="nav">
+        <a href="#releases">releases</a>
+        <a href="#bts">bts</a>
+        <a href="#upcoming">upcoming</a>
+        <a href="#contact">contact</a>
+      </nav>
+    </header>
+
+    <main class="home">
+      <div id="tiles" class="tiles"></div>
+    </main>
+
+    <!-- SECTION PANEL -->
+    <section id="panel" class="panel" aria-hidden="true">
+      <button class="panel-close" data-home aria-label="Close">&times;</button>
+      <div class="panel-inner">
+        <p class="panel-kicker" id="panel-kicker"></p>
+        <h2 class="panel-title" id="panel-title"></h2>
+        <div id="panel-body" class="panel-body"></div>
+      </div>
+    </section>
+
+    <!-- VIDEO LIGHTBOX -->
+    <div id="lightbox" class="lightbox" aria-hidden="true">
+      <button class="lightbox-close" aria-label="Close">&times;</button>
+      <div class="lightbox-frame"><iframe id="lightbox-iframe" title="Video" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>
+    </div>
+
+    <footer class="footer">
+      <a id="footer-email" class="footer-email" href="#"></a>
+      <p id="footer-bio" class="footer-bio"></p>
+      <div id="footer-socials" class="footer-socials"></div>
+      <p class="footer-copy">&copy; <span id="year"></span> 1 Purple Kow. All films &amp; photographs &copy; Director Cricket.</p>
+    </footer>
+  </div>
+
+  <script src="content.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
